@@ -66,4 +66,9 @@ export const ruleService = {
   },
 };
 
+export const getTechnologyStackFacet = () => api.get('/dependencies/facets/technology').then(r => r.data);
+export const getVersionPatternFacet = () => api.get('/dependencies/facets/versions').then(r => r.data);
+export const getFrameworkUsageFacet = () => api.get('/dependencies/facets/frameworks').then(r => r.data);
+export const getComponentActivityFacet = () => api.get('/dependencies/facets/activity').then(r => r.data);
+
 export default api; 
