@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Grid } from '@mui/material';
+import { Container, Grid, Typography, Box } from '@mui/material';
 import SummaryCards from '../components/dashboard/facets/SummaryCards';
 import LanguagePieChart from '../components/dashboard/facets/LanguagePieChart';
 import BuildManagerBarChart from '../components/dashboard/facets/BuildManagerBarChart';
-import FrameworkUsageStackedBar from '../components/dashboard/facets/FrameworkUsageStackedBar';
 import VersionDistributionTabs from '../components/dashboard/facets/VersionDistributionTabs';
 import {
   getTechnologyStackFacet,
   getVersionPatternFacet,
-  getFrameworkUsageFacet,
   getComponentActivityFacet,
 } from '../services/api';
 
@@ -17,13 +15,11 @@ const CHART_HEIGHT = 340;
 export default function Dashboard() {
   const [tech, setTech] = useState(null);
   const [versions, setVersions] = useState(null);
-  const [frameworks, setFrameworks] = useState(null);
   const [activity, setActivity] = useState(null);
 
   useEffect(() => {
     getTechnologyStackFacet().then(setTech);
     getVersionPatternFacet().then(setVersions);
-    getFrameworkUsageFacet().then(setFrameworks);
     getComponentActivityFacet().then(setActivity);
   }, []);
 
@@ -49,20 +45,22 @@ export default function Dashboard() {
         mostCommonLanguage={mostCommonLanguage}
         mostUsedBuildManager={mostUsedBuildManager}
       />
-      <Grid container spacing={3} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
-          <LanguagePieChart data={tech?.languageDistribution} />
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Typography variant="h5" sx={{ mb: 2, fontWeight: 500 }}>
+          Dependency Insights
+        </Typography>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
+            <LanguagePieChart data={tech?.languageDistribution} />
+          </Grid>
+          <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
+            <BuildManagerBarChart data={tech?.buildManagerDistribution} />
+          </Grid>
+          <Grid item xs={12} sx={{ minHeight: CHART_HEIGHT }}>
+            <VersionDistributionTabs data={versions} />
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
-          <BuildManagerBarChart data={tech?.buildManagerDistribution} />
-        </Grid>
-        <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
-          <FrameworkUsageStackedBar data={frameworks} />
-        </Grid>
-        <Grid item xs={12} md={6} sx={{ minHeight: CHART_HEIGHT }}>
-          <VersionDistributionTabs data={versions} />
-        </Grid>
-      </Grid>
+      </Box>
     </Container>
   );
 } 
