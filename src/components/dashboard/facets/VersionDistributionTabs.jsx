@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardContent, Typography, Tabs, Tab, Box } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, LabelList, Cell } from 'recharts';
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28CFF', '#FF6699'];
 
 const versionKeys = [
   { key: 'javaVersions', label: 'Java' },
@@ -33,7 +35,6 @@ export default function VersionDistributionTabs({ data }) {
   return (
     <Card sx={{ minHeight: 340 }}>
       <CardContent>
-        <Typography variant="h6" gutterBottom>Version Distribution</Typography>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
           {versionKeys.map((v, idx) => (
             <Tab key={v.key} label={v.label} />
@@ -50,7 +51,10 @@ export default function VersionDistributionTabs({ data }) {
                 <YAxis allowDecimals={false} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="count" fill="#1976d2">
+                <Bar dataKey="count">
+                  {chartData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={COLORS[idx % COLORS.length]} />
+                  ))}
                   <LabelList dataKey="count" position="top" />
                 </Bar>
               </BarChart>

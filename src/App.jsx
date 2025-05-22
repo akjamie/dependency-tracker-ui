@@ -10,10 +10,33 @@ const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      main: '#DB0011', // HSBC Red
+      contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#000000', // HSBC Black
+      contrastText: '#FFFFFF',
+    },
+    background: {
+      default: '#FFFFFF',
+      paper: '#FFFFFF',
+    },
+  },
+  components: {
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: 4,
+        },
+      },
     },
   },
 });
