@@ -29,11 +29,9 @@ export default function LanguagePieChart({ data }) {
                   ))}
                 </Pie>
                 <Tooltip />
+                <Legend layout="horizontal" align="center" verticalAlign="bottom" />
               </PieChart>
             </ResponsiveContainer>
-          </Box>
-          <Box sx={{ mt: 1 }}>
-            <Legend layout="horizontal" align="center" />
           </Box>
         </Box>
       </CardContent>
