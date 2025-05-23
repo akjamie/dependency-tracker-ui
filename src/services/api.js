@@ -19,10 +19,13 @@ export const searchDependencies = async (params) => {
     console.log('Searching with params:', cleanParams); // Debug log
     const response = await api.post('/dependencies', cleanParams);
     console.log('Search response:', response.data); // Debug log
-    return response.data;
+    return response.data.data;
   } catch (error) {
-    console.error('Error searching dependencies:', error);
-    throw error;
+    throw new Error(
+      error?.response?.data?.error?.message ||
+      error?.message ||
+      'Failed to search dependencies.'
+    );
   }
 };
 
@@ -66,9 +69,44 @@ export const ruleService = {
   },
 };
 
-export const getTechnologyStackFacet = () => api.get('/dependencies/facets/technology').then(r => r.data);
-export const getVersionPatternFacet = () => api.get('/dependencies/facets/versions').then(r => r.data);
+export const getTechnologyStackFacet = async () => {
+  try {
+    const response = await api.get('/dependencies/facets/technology');
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.error?.message ||
+      error?.message ||
+      'Failed to fetch technology stack facet.'
+    );
+  }
+};
+
+export const getVersionPatternFacet = async () => {
+  try {
+    const response = await api.get('/dependencies/facets/versions');
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.error?.message ||
+      error?.message ||
+      'Failed to fetch version distribution facet.'
+    );
+  }
+};
+
 export const getFrameworkUsageFacet = () => api.get('/dependencies/facets/frameworks').then(r => r.data);
-export const getComponentActivityFacet = () => api.get('/dependencies/facets/activity').then(r => r.data);
+export const getComponentActivityFacet = async () => {
+  try {
+    const response = await api.get('/dependencies/facets/activity');
+    return response.data.data;
+  } catch (error) {
+    throw new Error(
+      error?.response?.data?.error?.message ||
+      error?.message ||
+      'Failed to fetch component activity facet.'
+    );
+  }
+};
 
 export default api; 

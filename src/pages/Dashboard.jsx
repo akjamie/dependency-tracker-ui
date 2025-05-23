@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Grid, Typography, Box, Paper } from '@mui/material';
+import { Container, Grid, Typography, Box, Paper, Alert, CircularProgress } from '@mui/material';
 import SummaryCards from '../components/dashboard/facets/SummaryCards';
 import LanguagePieChart from '../components/dashboard/facets/LanguagePieChart';
 import BuildManagerBarChart from '../components/dashboard/facets/BuildManagerBarChart';
@@ -16,11 +16,26 @@ export default function Dashboard() {
   const [tech, setTech] = useState(null);
   const [versions, setVersions] = useState(null);
   const [activity, setActivity] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getTechnologyStackFacet().then(setTech);
-    getVersionPatternFacet().then(setVersions);
-    getComponentActivityFacet().then(setActivity);
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      getTechnologyStackFacet(),
+      getVersionPatternFacet(),
+      getComponentActivityFacet()
+    ])
+      .then(([techData, versionData, activityData]) => {
+        setTech(techData);
+        setVersions(versionData);
+        setActivity(activityData);
+      })
+      .catch((err) => {
+        setError(err.message || 'Failed to load dashboard data.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   // Calculate summary values
@@ -35,6 +50,22 @@ export default function Dashboard() {
         count
       }))
     : [];
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 8 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
 
   return (
     <Box sx={{ 

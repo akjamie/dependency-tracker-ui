@@ -34,8 +34,8 @@ const Dependencies = () => {
       setSearchResults(results);
       setSearchParams(params);
     } catch (err) {
-      setError('Failed to fetch dependencies. Please try again.');
-      console.error('Search error:', err);
+      setError(err.message || 'Failed to fetch dependencies. Please try again.');
+      setSearchResults(null);
     } finally {
       setLoading(false);
     }
