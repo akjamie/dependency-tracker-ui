@@ -50,7 +50,7 @@ export default function SummaryCards({ totalComponents, dependenciesByLanguage }
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <LanguageIcon sx={{ fontSize: 32, mr: 2, color: 'primary.main' }} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Dependencies by Language
+                Compoents by Language
               </Typography>
             </Box>
             <Box sx={{ mt: 1 }}>
