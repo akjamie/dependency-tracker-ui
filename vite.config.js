@@ -13,5 +13,23 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
+  },
+  optimizeDeps: {
+    include: ['date-fns', '@mui/x-date-pickers'],
+    esbuildOptions: {
+      target: 'es2020',
+      supported: {
+        'top-level-await': true
+      }
+    }
+  },
+  build: {
+    target: 'es2020',
+    commonjsOptions: {
+      include: [/date-fns/, /@mui\/x-date-pickers/]
+    },
+    rollupOptions: {
+      external: ['date-fns']
+    }
   }
 }) 
