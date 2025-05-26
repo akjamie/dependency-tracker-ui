@@ -43,7 +43,7 @@ export const createRule = async (ruleData) => {
 
 export const updateRule = async (id, ruleData) => {
   try {
-    const response = await api.patch(`${RULES_ENDPOINT}/${id}`, ruleData);
+    const response = await api.post(`${RULES_ENDPOINT}/${id}`, ruleData);
     return response.data.data;
   } catch (error) {
     throw new Error(

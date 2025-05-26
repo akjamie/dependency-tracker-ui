@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
+import { parseISO } from 'date-fns';
 import { toast } from 'react-toastify';
 
 const STATUS_OPTIONS = ['ACTIVE', 'DRAFT', 'ARCHIVED'];
@@ -65,7 +66,15 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
 
   useEffect(() => {
     if (rule) {
-      setFormData(rule);
+      // Parse the deadline date string to a Date object
+      const ruleData = {
+        ...rule,
+        compliance: {
+          ...rule.compliance,
+          deadline: rule.compliance.deadline ? parseISO(rule.compliance.deadline) : new Date()
+        }
+      };
+      setFormData(ruleData);
     }
   }, [rule]);
 
