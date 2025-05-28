@@ -26,7 +26,9 @@ import {
   useTheme,
   alpha,
   Collapse,
-  Tooltip, // Added Tooltip
+  Tooltip,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -35,33 +37,45 @@ import {
   Code as CodeIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  CheckCircleOutline as CheckCircleOutlineIcon, // Icon for Active status
-  WarningAmber as WarningAmberIcon,         // Icon for Draft status/Medium severity
-  ArchiveOutlined as ArchiveOutlinedIcon,   // Icon for Archived status
-  ErrorOutline as ErrorOutlineIcon,         // Icon for Critical/High severity
-  InfoOutlined as InfoOutlinedIcon,         // Icon for Low severity
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  WarningAmber as WarningAmberIcon,
+  ArchiveOutlined as ArchiveOutlinedIcon,
+  ErrorOutline as ErrorOutlineIcon,
+  InfoOutlined as InfoOutlinedIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
+  OpenInNew as OpenInNewIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { getViolationsByRuleId } from '../../services/violations';
+import { useNavigate } from 'react-router-dom';
 
-const STATUS_COLORS = {
+// Mappings for Rule Statuses
+const RULE_STATUS_COLORS = {
   ACTIVE: 'success',
   DRAFT: 'warning',
-  ARCHIVED: 'default'
+  ARCHIVED: 'default',
+  INACTIVE: 'error',
 };
 
-const STATUS_ICONS = {
+const RULE_STATUS_ICONS = {
   ACTIVE: <CheckCircleOutlineIcon />,
   DRAFT: <WarningAmberIcon />,
   ARCHIVED: <ArchiveOutlinedIcon />,
+  INACTIVE: <ErrorOutlineIcon />,
 };
 
+// Mappings for Severity
 const SEVERITY_COLORS = {
   CRITICAL: 'error',
   HIGH: 'error',
   MEDIUM: 'warning',
-  LOW: 'info'
+  LOW: 'info',
+  // INACTIVE status might not apply to severity, keep if needed based on API
+  INACTIVE: 'error', // Assuming INACTIVE severity should be error color
 };
 
 const SEVERITY_ICONS = {
@@ -69,6 +83,25 @@ const SEVERITY_ICONS = {
   HIGH: <ErrorOutlineIcon />,
   MEDIUM: <WarningAmberIcon />,
   LOW: <InfoOutlinedIcon />,
+  // INACTIVE status might not apply to severity, keep if needed based on API
+  INACTIVE: <ErrorOutlineIcon />,
+};
+
+// Mappings for Violation Statuses
+const VIOLATION_STATUS_COLORS = {
+  OPEN: 'error',
+  IN_PROGRESS: 'warning',
+  RESOLVED: 'success',
+  CLOSED: 'secondary',
+  IGNORED: 'info',
+};
+
+const VIOLATION_STATUS_ICONS = {
+  OPEN: <ErrorOutlineIcon />,
+  IN_PROGRESS: <WarningAmberIcon />,
+  RESOLVED: <CheckCircleOutlineIcon />,
+  CLOSED: <CloseIcon />,
+  IGNORED: <InfoOutlinedIcon />,
 };
 
 const LANGUAGE_ICONS = {
@@ -95,6 +128,166 @@ const getOperatorSymbol = (operator) => {
     }
 };
 
+function Row({ rule, onEditRule }) {
+  const [open, setOpen] = useState(false);
+  const [violations, setViolations] = useState([]);
+  const [loadingViolations, setLoadingViolations] = useState(false);
+  const [violationsError, setViolationsError] = useState(null);
+  const theme = useTheme();
+  const navigate = useNavigate();
+
+  const handleRowClick = async () => {
+    if (!open && violations.length === 0 && !loadingViolations) {
+      setLoadingViolations(true);
+      setViolationsError(null);
+      try {
+        const ruleViolations = await getViolationsByRuleId(rule.id);
+        setViolations(Array.isArray(ruleViolations?.data?.violations) ? ruleViolations.data.violations : []);
+      } catch (err) {
+        setViolationsError(err.message || 'Failed to fetch violations');
+        setViolations([]);
+      } finally {
+        setLoadingViolations(false);
+      }
+    }
+    setOpen(!open);
+  };
+
+  // Function to group violations by component
+  const groupViolationsByComponent = (violations) => {
+    const grouped = {};
+    violations.forEach(violation => {
+      if (!grouped[violation.componentId]) {
+        grouped[violation.componentId] = {
+          componentName: violation.componentName,
+          violations: []
+        };
+      }
+      grouped[violation.componentId].violations.push(violation);
+    });
+    return Object.values(grouped);
+  };
+
+  const renderTargetDetails = (rule) => {
+    const target = rule.ruleDefinition?.target;
+
+    if (!target) {
+      return <Typography variant="body2" color="text.secondary">No target specified</Typography>;
+    }
+
+    if (target.runtimeTarget) {
+      const { runtimeType, version, operator } = target.runtimeTarget;
+      const operatorSymbol = {
+        EQUAL: '==',
+        NOT_EQUAL: '!=',
+        GREATER: '>',
+        GREATER_EQUAL: '>=',
+        LESS: '<',
+        LESS_EQUAL: '<=',
+      }[operator] || operator;
+      return (
+        <Typography variant="body2">
+          <Box component="span" sx={{ fontWeight: 600 }}>Runtime Target:</Box> {`${runtimeType} ${operatorSymbol} ${version}`}
+        </Typography>
+      );
+    } else if (target.dependencyTarget) {
+      const { artefact, version, operator } = target.dependencyTarget;
+       const operatorSymbol = {
+        EQUAL: '==',
+        NOT_EQUAL: '!=',
+        GREATER: '>',
+        GREATER_EQUAL: '>=',
+        LESS: '<',
+        LESS_EQUAL: '<=',
+      }[operator] || operator;
+      return (
+        <Stack spacing={0.5}>
+           <Typography variant="body2">
+             <Box component="span" sx={{ fontWeight: 600 }}>Artefact:</Box> {artefact}
+           </Typography>
+           <Typography variant="body2">
+             <Box component="span" sx={{ fontWeight: 600 }}>Version Target:</Box> {`${version}`}
+           </Typography>
+        </Stack>
+      );
+    }
+    return <Typography variant="body2" color="text.secondary">No target specified</Typography>;
+  };
+
+  const groupedViolations = groupViolationsByComponent(violations);
+
+  return (
+    <React.Fragment>
+      <TableRow hover onClick={handleRowClick} sx={{ '& > *': { borderBottom: 'unset' }, cursor: 'pointer' }}>
+        <TableCell><IconButton aria-label="expand row" size="small" onClick={(e) => { e.stopPropagation(); handleRowClick(); }}>{open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}</IconButton></TableCell><TableCell component="th" scope="row">{rule.name}</TableCell><TableCell>{rule.language}</TableCell><TableCell>
+           <Tooltip title={`Status: ${rule.status}`}> 
+              <Chip
+                  label={rule.status}
+                  color={RULE_STATUS_COLORS[rule.status]}
+                  size="small"
+                  icon={RULE_STATUS_ICONS[rule.status]}
+                  sx={{
+                    backgroundColor: theme => alpha(theme.palette[RULE_STATUS_COLORS[rule.status]].main, 0.2),
+                    fontWeight: 600,
+                    borderColor: theme => alpha(theme.palette[RULE_STATUS_COLORS[rule.status]].main, 0.6),
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: theme => theme.palette[RULE_STATUS_COLORS[rule.status]].dark,
+                  }}
+                />
+          </Tooltip>
+        </TableCell><TableCell><Tooltip title={`Severity: ${rule.compliance.severity}`}><Chip label={rule.compliance.severity} color={SEVERITY_COLORS[rule.compliance.severity]} size="small" icon={SEVERITY_ICONS[rule.compliance.severity]} sx={{backgroundColor: theme => alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.2),fontWeight: 600,borderColor: theme => alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.6),borderWidth: '1px',borderStyle: 'solid',color: theme => theme.palette[SEVERITY_COLORS[rule.compliance.severity]].dark,}}/></Tooltip></TableCell><TableCell>{rule.description || 'N/A'}</TableCell><TableCell>{formatDate(new Date(rule.createdAt), 'MMM dd, yyyy')}</TableCell><TableCell align="right"><Button variant="outlined" size="small" onClick={(e) => { e.stopPropagation(); onEditRule(rule); }}>Edit</Button></TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box sx={{ margin: 1, pl: 4 }}>
+              <Typography variant="h6" gutterBottom component="div" sx={{ fontWeight: 600 }}>
+                Rule Details
+              </Typography>
+              {renderTargetDetails(rule)}
+
+              <Typography variant="h6" gutterBottom component="div" sx={{ fontWeight: 600, mt: 2 }}>
+                Violations by Component
+              </Typography>
+              {loadingViolations ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} />
+                </Box>
+              ) : violationsError ? (
+                 <Alert severity="error" sx={{ mt: 1 }}>{violationsError}</Alert>
+              ) : groupedViolations.length === 0 ? (
+                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>No components with violations found for this rule.</Typography>
+              ) : (
+                <Stack spacing={1.5} sx={{ mt: 1 }}>
+                  {groupedViolations.map((componentGroup) => (
+                    <Box key={componentGroup.componentName} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, border: '1px solid #eee', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {componentGroup.componentName} ({componentGroup.violations.length} violations)
+                      </Typography>
+                       <Button
+                          variant="outlined"
+                          size="small"
+                          endIcon={<OpenInNewIcon />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Navigate to Violations page filtered by rule and component
+                            navigate('/violations', { state: { ruleId: rule.id, componentId: componentGroup.violations[0].componentId, ruleName: rule.name, componentName: componentGroup.componentName } });
+                          }}
+                        >
+                          View Details
+                        </Button>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </React.Fragment>
+  );
+}
 
 export default function RuleList({ rules, metadata, onSearch, onEdit, searchParams, setSearchParams }) {
   const theme = useTheme();
@@ -220,17 +413,16 @@ export default function RuleList({ rules, metadata, onSearch, onEdit, searchPara
               label="From Date"
               value={searchParams.fromDate}
               onChange={(date) => handleSearchChange('fromDate', date)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  sx={{
+              slotProps={{
+                textField: {
+                  sx: {
                     background: '#fafbfc',
                     borderRadius: 2,
                     minWidth: { xs: '100%', sm: 140 },
                     flex: '1 1 140px',
-                  }}
-                />
-              )}
+                  }
+                }
+              }}
             />
           </LocalizationProvider>
           <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -238,17 +430,16 @@ export default function RuleList({ rules, metadata, onSearch, onEdit, searchPara
               label="To Date"
               value={searchParams.toDate}
               onChange={(date) => handleSearchChange('toDate', date)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  sx={{
+              slotProps={{
+                textField: {
+                  sx: {
                     background: '#fafbfc',
                     borderRadius: 2,
                     minWidth: { xs: '100%', sm: 140 },
                     flex: '1 1 140px',
-                  }}
-                />
-              )}
+                  }
+                }
+              }}
             />
           </LocalizationProvider>
           <Button
@@ -287,162 +478,14 @@ export default function RuleList({ rules, metadata, onSearch, onEdit, searchPara
             <TableCell>Language</TableCell>
             <TableCell>Status</TableCell>
             <TableCell>Severity</TableCell>
-            <TableCell>Deadline</TableCell>
+            <TableCell>Description</TableCell>
             <TableCell>Created</TableCell>
             <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rules.map((rule) => (
-            <React.Fragment key={rule.id}>
-              <TableRow
-                hover
-                onClick={() => handleRowClick(rule.id)} // Add click handler to toggle expand
-                sx={{
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                    cursor: 'pointer',
-                  },
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                  backgroundColor: expandedRow === rule.id ? alpha(theme.palette.primary.main, 0.08) : 'inherit',
-                }}
-              >
-                <TableCell>
-                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleRowClick(rule.id); }}>
-                    {expandedRow === rule.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </TableCell>
-                <TableCell>
-                  <Box>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {rule.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {rule.description}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="body1">
-                      {LANGUAGE_ICONS[rule.ruleDefinition.language]}
-                    </Typography>
-                    <Typography variant="body2">
-                      {rule.ruleDefinition.language}
-                    </Typography>
-                  </Stack>
-                </TableCell>
-                <TableCell>
-                  <Tooltip title={`Status: ${rule.status}`}> {/* Added Tooltip */}
-                    <Chip
-                      label={rule.status}
-                      color={STATUS_COLORS[rule.status]}
-                      size="small"
-                      icon={STATUS_ICONS[rule.status]} // Added Icon
-                      sx={{
-                        backgroundColor: alpha(theme.palette[STATUS_COLORS[rule.status]].main, 0.2),
-                        fontWeight: 600,
-                        borderColor: alpha(theme.palette[STATUS_COLORS[rule.status]].main, 0.6),
-                        borderWidth: '1px',
-                        borderStyle: 'solid',
-                        color: theme.palette[STATUS_COLORS[rule.status]].dark, // Ensure text is readable
-                      }}
-                    />
-                  </Tooltip>
-                </TableCell>
-                <TableCell>
-                  <Tooltip title={`Severity: ${rule.compliance.severity}`}> {/* Added Tooltip */}
-                    <Chip
-                      label={rule.compliance.severity}
-                      color={SEVERITY_COLORS[rule.compliance.severity]}
-                      size="small"
-                      icon={SEVERITY_ICONS[rule.compliance.severity]} // Added Icon
-                      sx={{
-                        backgroundColor: alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.2),
-                        fontWeight: 600,
-                        borderColor: alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.6),
-                        borderWidth: '1px',
-                        borderStyle: 'solid',
-                        color: theme.palette[SEVERITY_COLORS[rule.compliance.severity]].dark, // Ensure text is readable
-                      }}
-                    />
-                  </Tooltip>
-                </TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CalendarIcon fontSize="small" color="action" />
-                    <Typography variant="body2">
-                      {formatDate(new Date(rule.compliance.deadline), 'MMM dd, yyyy')}
-                    </Typography>
-                  </Stack>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {formatDate(new Date(rule.createdAt), 'MMM dd, yyyy')}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    size="small"
-                    onClick={() => onEdit(rule)}
-                    color="primary"
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: alpha(theme.palette.primary.main, 0.1)
-                      }
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-              {expandedRow === rule.id && (
-                <TableRow>
-                  <TableCell colSpan={8} sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
-                    <Collapse in={expandedRow === rule.id} timeout="auto" unmountOnExit>
-                      <Box sx={{ margin: 1 }}>
-                        <Typography variant="h6" gutterBottom component="div" sx={{ fontWeight: 600 }}>
-                          Rule Details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          {rule.ruleDefinition.target?.runtimeTarget && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 500, mb: 1 }}>Runtime Target</Typography>
-                               <Stack spacing={0.5}>
-                                 <Typography variant="body2">
-                                     <Box component="span" sx={{ fontWeight: 600 }}>Target:</Box> {`${rule.ruleDefinition.target.runtimeTarget.runtimeType || ''} `}
-                                     {rule.ruleDefinition.target.runtimeTarget.operator &&
-                                         (getOperatorSymbol(rule.ruleDefinition.target.runtimeTarget.operator))}
-                                     {` ${rule.ruleDefinition.target.runtimeTarget.version || ''}`}
-                                 </Typography>
-                               </Stack>
-                            </Grid>
-                          )}
-                          {rule.ruleDefinition.target?.dependencyTarget && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 500, mb: 1 }}>Dependency Target</Typography>
-                              <Stack spacing={0.5}>
-                                 <Typography variant="body2">
-                                     <Box component="span" sx={{ fontWeight: 600 }}>Target:</Box> {`${rule.ruleDefinition.target.dependencyTarget.artefact || ''} `}
-                                     {rule.ruleDefinition.target.dependencyTarget.operator &&
-                                         (getOperatorSymbol(rule.ruleDefinition.target.dependencyTarget.operator))}
-                                     {` ${rule.ruleDefinition.target.dependencyTarget.version || ''}`}
-                                 </Typography>
-                               </Stack>
-                            </Grid>
-                          )}
-                          {!rule.ruleDefinition.target?.runtimeTarget && !rule.ruleDefinition.target?.dependencyTarget && (
-                            <Grid item xs={12}>
-                              <Typography variant="body2">No specific runtime or dependency target defined for this rule.</Typography>
-                            </Grid>
-                          )}
-                        </Grid>
-                      </Box>
-                    </Collapse>
-                  </TableCell>
-                </TableRow>
-              )}
-            </React.Fragment>
+            <Row key={rule.id} rule={rule} onEditRule={onEdit} />
           ))}
         </TableBody>
       </Table>

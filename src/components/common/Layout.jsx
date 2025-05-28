@@ -19,6 +19,7 @@ import {
   Storage as DependenciesIcon,
   Rule as RulesIcon,
   Assessment as ReportsIcon,
+  ErrorOutline as ViolationsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -47,6 +48,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Dependencies', icon: <DependenciesIcon />, path: '/dependencies' },
   { text: 'Rules', icon: <RulesIcon />, path: '/rules' },
+  { text: 'Violations', icon: <ViolationsIcon />, path: '/violations' },
   { text: 'Reports', icon: <ReportsIcon />, path: '/reports' },
 ];
 

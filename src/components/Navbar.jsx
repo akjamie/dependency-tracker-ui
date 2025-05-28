@@ -17,8 +17,11 @@ const Navbar = () => {
           <Button color="inherit" component={RouterLink} to="/">
             Dashboard
           </Button>
-          <Button color="inherit" component={RouterLink} to="/rules">
+          <Button color="inherit" component={RouterLink} to="/rules" sx={{ fontWeight: 600, textTransform: 'none' }}>
             Rules
+          </Button>
+          <Button color="inherit" component={RouterLink} to="/violations" sx={{ fontWeight: 600, textTransform: 'none' }}>
+            Violations
           </Button>
         </Box>
       </Toolbar>

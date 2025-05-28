@@ -6,6 +6,8 @@ import Layout from './components/common/Layout';
 import Dashboard from './pages/Dashboard';
 import Dependencies from './pages/Dependencies';
 import Rules from './pages/Rules';
+import Violations from './pages/Violations';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
 const theme = createTheme({
   palette: {
@@ -51,6 +53,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/dependencies" element={<Dependencies />} />
           <Route path="/rules" element={<Rules />} />
+          <Route path="/violations" element={<Violations />} />
           {/* <Route path="/reports" element={<Reports />} /> */}
         </Routes>
       </Layout>
