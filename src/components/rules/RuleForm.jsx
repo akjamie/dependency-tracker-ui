@@ -69,6 +69,14 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
       // Parse the deadline date string to a Date object
       const ruleData = {
         ...rule,
+        ruleDefinition: {
+            ...rule.ruleDefinition,
+            target: {
+                ...rule.ruleDefinition.target,
+                runtimeTarget: rule.ruleDefinition.target?.runtimeTarget || { runtimeType: '', version: '', operator: '' },
+                dependencyTarget: rule.ruleDefinition.target?.dependencyTarget || { artefact: '', version: '', operator: '' },
+            }
+        },
         compliance: {
           ...rule.compliance,
           deadline: rule.compliance.deadline ? parseISO(rule.compliance.deadline) : new Date()
@@ -109,11 +117,11 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
       }
       if (!formData.ruleDefinition.target.runtimeTarget.version) {
         newErrors.runtimeVersion = 'Runtime version is required when using runtime target';
-      } else if (!new RegExp(VERSION_PATTERN).test(formData.ruleDefinition.target.runtimeTarget.version)) {
+      } else if (formData.ruleDefinition.target.runtimeTarget.version && !new RegExp(VERSION_PATTERN).test(formData.ruleDefinition.target.runtimeTarget.version)) {
         newErrors.runtimeVersion = 'Invalid version format. Expected format: x.y.z[-suffix]';
       }
-      if (!formData.ruleDefinition.target.runtimeTarget.operator) {
-        newErrors.runtimeOperator = 'Operator is required when using runtime target';
+      if (formData.ruleDefinition.target.runtimeTarget.version && !formData.ruleDefinition.target.runtimeTarget.operator) {
+        newErrors.runtimeOperator = 'Operator is required when a version is specified';
       }
     }
 
@@ -128,17 +136,23 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
       }
       if (!formData.ruleDefinition.target.dependencyTarget.version) {
         newErrors.dependencyVersion = 'Dependency version is required when using dependency target';
-      } else if (!new RegExp(VERSION_PATTERN).test(formData.ruleDefinition.target.dependencyTarget.version)) {
+      } else if (formData.ruleDefinition.target.dependencyTarget.version && !new RegExp(VERSION_PATTERN).test(formData.ruleDefinition.target.dependencyTarget.version)) {
         newErrors.dependencyVersion = 'Invalid version format. Expected format: x.y.z[-suffix]';
       }
-      if (!formData.ruleDefinition.target.dependencyTarget.operator) {
-        newErrors.dependencyOperator = 'Operator is required when using dependency target';
+       if (formData.ruleDefinition.target.dependencyTarget.version && !formData.ruleDefinition.target.dependencyTarget.operator) {
+        newErrors.dependencyOperator = 'Operator is required when a version is specified';
       }
     }
 
-    // At least one target must be filled
-    if (!hasRuntimeTarget && !hasDependencyTarget) {
-      newErrors.targets = 'At least one target (Runtime or Dependency) must be specified';
+    // --- Mutual Exclusivity and At Least One Target Validation ---
+    // Check if both targets are set
+    if (hasRuntimeTarget && hasDependencyTarget) {
+        newErrors.targets = 'Cannot set both Runtime and Dependency targets simultaneously.';
+    } else if (!hasRuntimeTarget && !hasDependencyTarget) {
+        // Check if at least one target is set, if either section was interacted with
+         if (formData.ruleDefinition.target.runtimeTarget?.runtimeType || formData.ruleDefinition.target.dependencyTarget?.artefact) {
+              newErrors.targets = 'At least one target (Runtime or Dependency) must be specified correctly.';
+         }
     }
 
     setErrors(newErrors);
@@ -150,11 +164,15 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
       const newData = { ...prev };
       const fields = field.split('.');
       let current = newData;
-      
+
       for (let i = 0; i < fields.length - 1; i++) {
+        // If the nested object doesn't exist, create it
+        if (!current[fields[i]]) {
+          current[fields[i]] = {};
+        }
         current = current[fields[i]];
       }
-      
+
       current[fields[fields.length - 1]] = value;
       return newData;
     });
@@ -167,12 +185,23 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
         return newErrors;
       });
     }
+     // Also clear the general 'targets' error if either target section is being edited
+    if ((field.startsWith('ruleDefinition.target.runtimeTarget') || field.startsWith('ruleDefinition.target.dependencyTarget')) && errors.targets) {
+        setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.targets;
+            return newErrors;
+        });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Clear previous backend errors
+    setErrors({});
+
     if (!validateForm()) {
-      toast.error('Please fill in all required fields correctly');
+      toast.error('Please fix the errors in the form.');
       return;
     }
 
@@ -192,7 +221,39 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
     try {
       await onSubmit(submitData);
     } catch (error) {
-      toast.error(error.message || 'Failed to save rule');
+      console.error('API Error:', error);
+      // Check for detailed validation errors from the backend
+      if (error?.response?.data?.error?.details) {
+        const backendErrors = error.response.data.error.details;
+        const formErrors = {};
+        // Map backend error keys to form field keys
+        for (const key in backendErrors) {
+          if (backendErrors.hasOwnProperty(key)) {
+            // Simple mapping for now, can be extended for nested fields if needed
+            const fieldName = key.split('.').pop(); // Get the last part of nested keys like 'compliance.deadline'
+            if (fieldName) {
+              // Special case for deadline as backend sends compliance.deadline but form uses 'deadline'
+              formErrors[fieldName === 'deadline' ? 'deadline' : fieldName] = backendErrors[key];
+            }
+          }
+        }
+         // Handle the case where the backend returns a general validation error message
+        if (backendErrors.length > 0 && Object.keys(formErrors).length === 0) {
+             toast.error(error?.response?.data?.error?.message || 'Validation failed.');
+         } else if(Object.keys(formErrors).length > 0) {
+            setErrors(formErrors); // Set specific field errors
+            toast.error('Please fix the errors highlighted in the form.');
+         } else {
+            // Fallback for other types of backend errors
+             toast.error(error?.response?.data?.error?.message || 'An error occurred.');
+         }
+      } else {
+        // Handle non-validation errors or errors without details
+        toast.error(error.message || 'Failed to save rule');
+      }
+      throw error; // Re-throw to allow onSubmit caller to handle if needed
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -228,6 +289,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 onChange={(e) => handleChange('status', e.target.value)}
                 required
               >
+                <MenuItem value="">None</MenuItem>
                 {STATUS_OPTIONS.map(status => (
                   <MenuItem key={status} value={status}>{status}</MenuItem>
                 ))}
@@ -266,6 +328,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 onChange={(e) => handleChange('ruleDefinition.language', e.target.value)}
                 required
               >
+                <MenuItem value="">None</MenuItem>
                 {LANGUAGE_OPTIONS.map(lang => (
                   <MenuItem key={lang} value={lang}>{lang}</MenuItem>
                 ))}
@@ -288,6 +351,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 label="Runtime Type"
                 onChange={(e) => handleChange('ruleDefinition.target.runtimeTarget.runtimeType', e.target.value)}
               >
+                <MenuItem value="">None</MenuItem>
                 {RUNTIME_TYPE_OPTIONS.map(type => (
                   <MenuItem key={type.value} value={type.value}>{type.label}</MenuItem>
                 ))}
@@ -316,6 +380,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 label="Operator"
                 onChange={(e) => handleChange('ruleDefinition.target.runtimeTarget.operator', e.target.value)}
               >
+                <MenuItem value="">None</MenuItem>
                 {OPERATOR_OPTIONS.map(op => (
                   <MenuItem key={op} value={op}>{op}</MenuItem>
                 ))}
@@ -361,6 +426,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 label="Operator"
                 onChange={(e) => handleChange('ruleDefinition.target.dependencyTarget.operator', e.target.value)}
               >
+                <MenuItem value="">None</MenuItem>
                 {OPERATOR_OPTIONS.map(op => (
                   <MenuItem key={op} value={op}>{op}</MenuItem>
                 ))}
@@ -411,6 +477,7 @@ export default function RuleForm({ rule, onSubmit, isSubmitting }) {
                 onChange={(e) => handleChange('compliance.severity', e.target.value)}
                 required
               >
+                <MenuItem value="">None</MenuItem>
                 {SEVERITY_OPTIONS.map(severity => (
                   <MenuItem key={severity} value={severity}>{severity}</MenuItem>
                 ))}
