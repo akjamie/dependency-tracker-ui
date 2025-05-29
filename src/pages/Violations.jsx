@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -109,13 +110,13 @@ function ViolationRow({ violation, onStatusChange }) {
             {open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </TableCell>
+        <TableCell>{violation.componentName}</TableCell>
         <TableCell>{violation.ruleName}</TableCell>
         <TableCell>
           <Typography variant="body2" color="text.secondary">
             {violation.ruleId}
           </Typography>
         </TableCell>
-        <TableCell>{violation.componentName}</TableCell>
         <TableCell>
           <Tooltip title={`Status: ${violation.status}`}>
             <Chip
@@ -192,10 +193,12 @@ function ViolationRow({ violation, onStatusChange }) {
 
 export default function Violations() {
   const theme = useTheme();
+  const location = useLocation();
   const [violations, setViolations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchParams, setSearchParams] = useState({
+    ruleId: '',
     ruleName: '',
     status: '',
     componentName: '',
@@ -203,15 +206,32 @@ export default function Violations() {
     size: 10,
   });
 
-  const fetchViolations = async () => {
+  // Handle navigation state and trigger search
+  useEffect(() => {
+    if (location.state?.ruleId) {
+      const newParams = {
+        ...searchParams,
+        ruleId: location.state.ruleId,
+        ruleName: '',
+        status: '',
+        componentName: '',
+        page: 0,
+      };
+      setSearchParams(newParams);
+      // Trigger search with new params
+      fetchViolations(newParams);
+    }
+  }, [location.state]);
+
+  const fetchViolations = async (params = searchParams) => {
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        ...searchParams,
-        page: searchParams.page + 1,
+      const searchParams = {
+        ...params,
+        page: params.page + 1,
       };
-      const response = await searchViolations(params);
+      const response = await searchViolations(searchParams);
       setViolations(Array.isArray(response.data?.violations) ? response.data.violations : []);
     } catch (err) {
       setError(err.message || 'Failed to fetch violations');
@@ -222,7 +242,9 @@ export default function Violations() {
   };
 
   useEffect(() => {
-    fetchViolations();
+    if (!location.state?.ruleId) {
+      fetchViolations();
+    }
   }, [searchParams.page, searchParams.size]);
 
   const handleSearchChange = (field, value) => {
@@ -254,7 +276,16 @@ export default function Violations() {
       {/* Search Filters */}
       <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              label="Rule ID"
+              value={searchParams.ruleId}
+              onChange={(e) => handleSearchChange('ruleId', e.target.value)}
+              sx={{ background: '#fafbfc', borderRadius: 2 }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
             <TextField
               fullWidth
               label="Rule Name"
@@ -266,7 +297,7 @@ export default function Violations() {
               sx={{ background: '#fafbfc', borderRadius: 2 }}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
             <FormControl fullWidth sx={{ background: '#fafbfc', borderRadius: 2 }}>
               <InputLabel>Status</InputLabel>
               <Select
@@ -283,7 +314,7 @@ export default function Violations() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
             <TextField
               fullWidth
               label="Component Name"
@@ -294,6 +325,23 @@ export default function Violations() {
           </Grid>
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={() => {
+                  setSearchParams(prev => ({
+                    ...prev,
+                    ruleId: '',
+                    ruleName: '',
+                    status: '',
+                    componentName: '',
+                    page: 0,
+                  }));
+                }}
+                sx={{ borderRadius: 2 }}
+              >
+                Clear Filters
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -335,9 +383,9 @@ export default function Violations() {
               <TableHead>
                 <TableRow sx={{ background: '#fafbfc' }}>
                   <TableCell />
+                  <TableCell>Component</TableCell>
                   <TableCell>Rule Name</TableCell>
                   <TableCell>Rule ID</TableCell>
-                  <TableCell>Component</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Violations</TableCell>
                   <TableCell>Created At</TableCell>

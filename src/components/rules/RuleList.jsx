@@ -46,6 +46,8 @@ import {
   KeyboardArrowUp as KeyboardArrowUpIcon,
   OpenInNew as OpenInNewIcon,
   Close as CloseIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { format as formatDate } from 'date-fns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -216,10 +218,17 @@ function Row({ rule, onEditRule }) {
 
   const groupedViolations = groupViolationsByComponent(violations);
 
+  const handleViewDetails = () => {
+    navigate('/violations', { state: { ruleId: rule.id } });
+  };
+
   return (
     <React.Fragment>
       <TableRow hover onClick={handleRowClick} sx={{ '& > *': { borderBottom: 'unset' }, cursor: 'pointer' }}>
-        <TableCell><IconButton aria-label="expand row" size="small" onClick={(e) => { e.stopPropagation(); handleRowClick(); }}>{open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}</IconButton></TableCell><TableCell component="th" scope="row">{rule.name}</TableCell><TableCell>{rule.language}</TableCell><TableCell>
+        <TableCell><IconButton aria-label="expand row" size="small" onClick={(e) => { e.stopPropagation(); handleRowClick(); }}>{open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}</IconButton></TableCell>
+        <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>{rule.name}</TableCell>
+        <TableCell>{rule.ruleDefinition.language}</TableCell>
+        <TableCell>
            <Tooltip title={`Status: ${rule.status}`}> 
               <Chip
                   label={rule.status}
@@ -232,11 +241,22 @@ function Row({ rule, onEditRule }) {
                     borderColor: theme => alpha(theme.palette[RULE_STATUS_COLORS[rule.status]].main, 0.6),
                     borderWidth: '1px',
                     borderStyle: 'solid',
-                    color: theme => theme.palette[RULE_STATUS_COLORS[rule.status]].dark,
+                    color: theme => theme.palette[RULE_STATUS_COLORS[rule.status]].dark, fontWeight: 600,
                   }}
                 />
           </Tooltip>
-        </TableCell><TableCell><Tooltip title={`Severity: ${rule.compliance.severity}`}><Chip label={rule.compliance.severity} color={SEVERITY_COLORS[rule.compliance.severity]} size="small" icon={SEVERITY_ICONS[rule.compliance.severity]} sx={{backgroundColor: theme => alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.2),fontWeight: 600,borderColor: theme => alpha(theme.palette[SEVERITY_COLORS[rule.compliance.severity]].main, 0.6),borderWidth: '1px',borderStyle: 'solid',color: theme => theme.palette[SEVERITY_COLORS[rule.compliance.severity]].dark,}}/></Tooltip></TableCell><TableCell>{rule.description || 'N/A'}</TableCell><TableCell>{formatDate(new Date(rule.createdAt), 'MMM dd, yyyy')}</TableCell><TableCell align="right"><Button variant="outlined" size="small" onClick={(e) => { e.stopPropagation(); onEditRule(rule); }}>Edit</Button></TableCell>
+        </TableCell>
+        <TableCell>{rule.compliance.severity}</TableCell>
+        <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Tooltip title={rule.description || 'N/A'}>
+            <Typography variant="body2" noWrap>{rule.description || 'N/A'}</Typography>
+          </Tooltip>
+        </TableCell>
+        <TableCell>
+          {rule.compliance.deadline ? formatDate(new Date(rule.compliance.deadline), 'MMM dd, yyyy') : 'N/A'}
+        </TableCell>
+        <TableCell>{formatDate(new Date(rule.createdAt), 'MMM dd, yyyy')}</TableCell>
+        <TableCell align="right"><Button variant="outlined" size="small" onClick={(e) => { e.stopPropagation(); onEditRule(rule); }}>Edit</Button></TableCell>
       </TableRow>
       <TableRow>
         <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
@@ -268,17 +288,17 @@ function Row({ rule, onEditRule }) {
                        <Button
                           variant="outlined"
                           size="small"
-                          endIcon={<OpenInNewIcon />}
+                          startIcon={<VisibilityIcon />}
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Navigate to Violations page filtered by rule and component
-                            navigate('/violations', { state: { ruleId: rule.id, componentId: componentGroup.violations[0].componentId, ruleName: rule.name, componentName: componentGroup.componentName } });
+                            handleViewDetails();
                           }}
                         >
                           View Details
                         </Button>
                     </Box>
-                  ))}
+                  ))
+                  }
                 </Stack>
               )}
             </Box>
@@ -474,19 +494,21 @@ export default function RuleList({ rules, metadata, onSearch, onEdit, searchPara
         <TableHead>
           <TableRow sx={{ background: '#fafbfc' }}>
             <TableCell /> {/* Empty cell for expand icon */}
-            <TableCell>Name</TableCell>
-            <TableCell>Language</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Severity</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell>Created</TableCell>
-            <TableCell>Actions</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Language</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Severity</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Deadline</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rules.map((rule) => (
             <Row key={rule.id} rule={rule} onEditRule={onEdit} />
-          ))}
+          ))
+          }
         </TableBody>
       </Table>
     </TableContainer>
