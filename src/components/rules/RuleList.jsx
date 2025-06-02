@@ -237,7 +237,6 @@ function Row({ rule, onEditRule }) {
                   icon={RULE_STATUS_ICONS[rule.status]}
                   sx={{
                     backgroundColor: theme => alpha(theme.palette[RULE_STATUS_COLORS[rule.status]].main, 0.2),
-                    fontWeight: 600,
                     borderColor: theme => alpha(theme.palette[RULE_STATUS_COLORS[rule.status]].main, 0.6),
                     borderWidth: '1px',
                     borderStyle: 'solid',

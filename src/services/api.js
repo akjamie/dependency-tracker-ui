@@ -1,15 +1,28 @@
 import axios from 'axios';
+import config from '../config';
 
+// Create the API instance
 const api = axios.create({
-  baseURL: 'http://localhost:8080/dependency-tracker',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Initialize the baseURL
+let baseUrlPromise = config.load().then(env => {
+  console.log('Setting API base URL:', env.API_URL);  // Debug log
+  api.defaults.baseURL = env.API_URL;
+  return env.API_URL;
+});
+
 // Add a request interceptor
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    // Ensure baseURL is set before making the request
+    if (!config.baseURL) {
+      config.baseURL = await baseUrlPromise;
+    }
+    console.log('Making request to:', config.baseURL + config.url);  // Debug log
     // You can add auth tokens here if needed
     return config;
   },
@@ -105,7 +118,12 @@ export const getTechnologyStackFacet = async () => {
     return response.data.data;
   } catch (error) {
     console.warn('Failed to fetch technology stack facet:', error);
-    return []; // Return empty array instead of throwing
+    return {
+      languageDistribution: {},
+      buildManagerDistribution: {},
+      runtimeDistribution: {},
+      compilerDistribution: {}
+    };
   }
 };
 
@@ -115,7 +133,16 @@ export const getVersionPatternFacet = async () => {
     return response.data.data;
   } catch (error) {
     console.warn('Failed to fetch version distribution facet:', error);
-    return []; // Return empty array instead of throwing
+    return {
+      metadata: { total: 0, page: 1, size: 10, totalPages: 0 },
+      javaVersions: {},
+      pythonVersions: {},
+      nodeVersions: {},
+      springBootVersions: {},
+      reactVersions: {},
+      angularVersions: {},
+      vueVersions: {}
+    };
   }
 };
 
@@ -125,7 +152,10 @@ export const getFrameworkUsageFacet = async () => {
     return response.data.data;
   } catch (error) {
     console.warn('Failed to fetch framework usage facet:', error);
-    return []; // Return empty array instead of throwing
+    return {
+      metadata: { total: 0, page: 1, size: 10, totalPages: 0 },
+      frameworks: []
+    };
   }
 };
 
@@ -135,7 +165,10 @@ export const getComponentActivityFacet = async () => {
     return response.data.data;
   } catch (error) {
     console.warn('Failed to fetch component activity facet:', error);
-    return []; // Return empty array instead of throwing
+    return {
+      componentTypes: {},
+      dependencyCount: {}
+    };
   }
 };
 
